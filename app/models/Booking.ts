@@ -7,6 +7,7 @@ interface IBooking extends Document {
   turfId: mongoose.Types.ObjectId;
   slot: {
     day: string;
+    date: Date;
     startTime: string;
     endTime: string;
   };
@@ -26,6 +27,11 @@ const BookingSlotSchema = new mongoose.Schema({
     type: String,
     required: true,
     enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+  },
+  date: {
+    type: Date,
+    required: true,
+    index: true // Add index for better query performance
   },
   startTime: {
     type: String,

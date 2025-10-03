@@ -20,8 +20,10 @@ import {
   Loader2
 } from 'lucide-react';
 import Image from 'next/image';
+import { format, isSameDay, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 // Import PaymentModal component
 import PaymentModal from '@/components/booking/PaymentModal';
+import { WeekCalendar } from '@/components/booking/WeekCalendar';
 
 interface TurfData {
   _id: string;
@@ -47,6 +49,7 @@ interface TurfData {
   };
   availableSlots: Array<{
     day: string;
+    date?: string; // ISO date string from API
     startTime: string;
     endTime: string;
     isBooked: boolean;
@@ -73,16 +76,30 @@ export default function TurfDetailsPage({ turfId }: TurfDetailsPageProps) {
   const [turf, setTurf] = useState<TurfData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<{
     day: string;
+    date: Date;
     startTime: string;
     endTime: string;
   } | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [bookedSlots, setBookedSlots] = useState<Array<{
+    date: string; // YYYY-MM-DD format
+    startTime: string;
+    endTime: string;
+  }>>([]);
 
   useEffect(() => {
     fetchTurfDetails();
+    fetchBookedSlots(); // Fetch booked slots for current week initially
   }, [turfId]);
+
+  useEffect(() => {
+    if (selectedDate) {
+      fetchBookedSlots(); // Refresh when date changes to different week
+    }
+  }, [selectedDate, turfId]);
 
   const fetchTurfDetails = async () => {
     try {
@@ -103,8 +120,44 @@ export default function TurfDetailsPage({ turfId }: TurfDetailsPageProps) {
     }
   };
 
-  const handleSlotSelect = (slot: { day: string; startTime: string; endTime: string }) => {
-    setSelectedSlot(slot);
+  const fetchBookedSlots = async () => {
+    try {
+      // Get the week range based on selected date, or current date if none selected
+      const baseDate = selectedDate || new Date();
+      const weekStart = startOfWeek(baseDate, { weekStartsOn: 1 }); // Monday
+      const weekEnd = endOfWeek(baseDate, { weekStartsOn: 1 }); // Sunday
+      
+      console.log('Fetching booked slots for week:', {
+        baseDate: format(baseDate, 'yyyy-MM-dd'),
+        weekStart: format(weekStart, 'yyyy-MM-dd'),
+        weekEnd: format(weekEnd, 'yyyy-MM-dd')
+      });
+      
+      const response = await fetch(`/api/bookings/turf/${turfId}/week?start=${format(weekStart, 'yyyy-MM-dd')}&end=${format(weekEnd, 'yyyy-MM-dd')}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Received booked slots:', data.bookedSlots);
+        setBookedSlots(data.bookedSlots || []);
+      } else {
+        console.log('Failed to fetch booked slots:', response.status);
+      }
+    } catch (error) {
+      console.error('Error fetching booked slots:', error);
+      // Don't set error state as this is not critical
+    }
+  };
+
+  const handleSlotSelect = (slot: { day: string; startTime: string; endTime: string }, date: Date) => {
+    setSelectedSlot({
+      ...slot,
+      date
+    });
+  };
+
+  const handleDateSelect = (date: Date) => {
+    setSelectedDate(date);
+    setSelectedSlot(null); // Clear selected slot when date changes
   };
 
   const handleProceedToPayment = () => {
@@ -116,8 +169,9 @@ export default function TurfDetailsPage({ turfId }: TurfDetailsPageProps) {
   const handleBookingSuccess = () => {
     setShowPaymentModal(false);
     setSelectedSlot(null);
-    // Refresh turf details to update slot availability
+    // Refresh both turf details and booked slots
     fetchTurfDetails();
+    fetchBookedSlots();
   };
 
   if (loading) {
@@ -143,16 +197,41 @@ export default function TurfDetailsPage({ turfId }: TurfDetailsPageProps) {
     );
   }
 
-  // Group slots by day
-  const slotsByDay = turf.availableSlots.reduce((acc, slot) => {
-    if (!acc[slot.day]) {
-      acc[slot.day] = [];
-    }
-    acc[slot.day].push(slot);
-    return acc;
-  }, {} as Record<string, typeof turf.availableSlots>);
+  // Get available slots for the selected date
+  const getAvailableSlotsForDate = (date: Date) => {
+    if (!turf) return [];
+    
+    const dayName = format(date, 'EEEE'); // Monday, Tuesday, etc.
+    const dateString = format(date, 'yyyy-MM-dd');
+    
+    console.log('Getting slots for:', { dayName, dateString, bookedSlotsCount: bookedSlots.length });
+    
+    // Get all slots for this day of the week
+    const daySlots = turf.availableSlots.filter(slot => slot.day === dayName);
+    
+    // Check which slots are booked for this specific date and override isBooked
+    return daySlots.map(slot => {
+      const isBookedForThisDate = bookedSlots.some(bookedSlot => 
+        bookedSlot.date === dateString &&
+        bookedSlot.startTime === slot.startTime &&
+        bookedSlot.endTime === slot.endTime
+      );
+      
+      console.log(`Slot ${slot.startTime}-${slot.endTime}:`, {
+        originalIsBooked: slot.isBooked,
+        isBookedForThisDate,
+        dateString,
+        bookedSlots: bookedSlots.filter(bs => bs.startTime === slot.startTime && bs.endTime === slot.endTime)
+      });
+      
+      return {
+        ...slot,
+        isBooked: isBookedForThisDate // Override with date-specific booking status
+      };
+    });
+  };
 
-  const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const availableSlotsForSelectedDate = selectedDate ? getAvailableSlotsForDate(selectedDate) : [];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -246,54 +325,71 @@ export default function TurfDetailsPage({ turfId }: TurfDetailsPageProps) {
               </Card>
             </div>
 
-            {/* Available Slots */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Available Time Slots</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {daysOrder.map((day) => {
-                    const daySlots = slotsByDay[day] || [];
-                    if (daySlots.length === 0) return null;
+            {/* Calendar and Available Slots */}
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Calendar */}
+              <WeekCalendar
+                selectedDate={selectedDate}
+                onDateSelect={handleDateSelect}
+              />
 
-                    return (
-                      <div key={day}>
-                        <h3 className="font-medium text-gray-900 mb-3">{day}</h3>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                          {daySlots.map((slot, index) => (
-                            <Button
-                              key={index}
-                              variant={
-                                selectedSlot?.day === slot.day &&
-                                selectedSlot?.startTime === slot.startTime &&
-                                selectedSlot?.endTime === slot.endTime
-                                  ? "default"
-                                  : slot.isBooked 
-                                    ? "destructive"
-                                    : "outline"
-                              }
-                              disabled={slot.isBooked}
-                              className={`text-sm ${
-                                slot.isBooked 
-                                  ? 'bg-red-100 text-red-800 border-red-300 cursor-not-allowed hover:bg-red-100' 
-                                  : ''
-                              }`}
-                              onClick={() => !slot.isBooked && handleSlotSelect(slot)}
-                            >
-                              {slot.startTime} - {slot.endTime}
-                              {slot.isBooked && (
-                                <span className="ml-1 text-xs">(Booked)</span>
-                              )}
-                            </Button>
-                          ))}
-                        </div>
+              {/* Available Slots for Selected Date */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    {selectedDate 
+                      ? `Available Slots - ${format(selectedDate, 'EEEE, MMM d')}`
+                      : 'Select a Date to View Slots'
+                    }
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {selectedDate ? (
+                    availableSlotsForSelectedDate.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        {availableSlotsForSelectedDate.map((slot, index) => (
+                          <Button
+                            key={index}
+                            variant={
+                              selectedSlot?.startTime === slot.startTime &&
+                              selectedSlot?.endTime === slot.endTime &&
+                              selectedSlot?.date && selectedDate &&
+                              isSameDay(selectedSlot.date, selectedDate)
+                                ? "default"
+                                : slot.isBooked 
+                                  ? "destructive"
+                                  : "outline"
+                            }
+                            disabled={slot.isBooked}
+                            className={`text-sm ${
+                              slot.isBooked 
+                                ? 'bg-red-100 text-red-800 border-red-300 cursor-not-allowed hover:bg-red-100' 
+                                : ''
+                            }`}
+                            onClick={() => !slot.isBooked && handleSlotSelect(slot, selectedDate)}
+                          >
+                            {slot.startTime} - {slot.endTime}
+                            {slot.isBooked && (
+                              <span className="ml-1 text-xs">(Booked)</span>
+                            )}
+                          </Button>
+                        ))}
                       </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p>No slots available for this date</p>
+                      </div>
+                    )
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p>Please select a date to view available slots</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
 
           {/* Sidebar */}
@@ -307,11 +403,11 @@ export default function TurfDetailsPage({ turfId }: TurfDetailsPageProps) {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {selectedSlot ? (
+                  {selectedSlot && selectedDate ? (
                     <div>
                       <h4 className="font-medium text-gray-900 mb-2">Selected Slot</h4>
                       <div className="bg-gray-50 p-3 rounded-lg">
-                        <p className="font-medium">{selectedSlot.day}</p>
+                        <p className="font-medium">{format(selectedDate, 'EEEE, MMM d')}</p>
                         <p className="text-sm text-gray-600">
                           {selectedSlot.startTime} - {selectedSlot.endTime}
                         </p>
@@ -325,13 +421,13 @@ export default function TurfDetailsPage({ turfId }: TurfDetailsPageProps) {
                   ) : (
                     <div className="text-center text-gray-500 py-8">
                       <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                      <p>Select a time slot to continue</p>
+                      <p>Select a date and time slot to continue</p>
                     </div>
                   )}
                   
                   <Button 
                     className="w-full" 
-                    disabled={!selectedSlot}
+                    disabled={!selectedSlot || !selectedDate}
                     onClick={handleProceedToPayment}
                   >
                     Proceed to Payment
@@ -344,12 +440,12 @@ export default function TurfDetailsPage({ turfId }: TurfDetailsPageProps) {
       </div>
 
       {/* Payment Modal */}
-      {showPaymentModal && selectedSlot && (
+      {showPaymentModal && selectedSlot && selectedDate && (
         <PaymentModal
           isOpen={showPaymentModal}
           onClose={() => setShowPaymentModal(false)}
           turf={turf}
-          selectedSlot={selectedSlot}
+          selectedSlot={{ ...selectedSlot, date: selectedDate }}
           totalAmount={turf.pricing}
           onSuccess={handleBookingSuccess}
         />

@@ -4,6 +4,7 @@ import Booking from '@/app/models/Booking';
 import User from '@/app/models/User';
 import Turf from '@/app/models/Turf';
 import { v2 as cloudinary } from 'cloudinary';
+import { format } from 'date-fns';
 
 // Configure Cloudinary
 cloudinary.config({
@@ -142,12 +143,20 @@ export async function POST(request: NextRequest) {
       ownerId,
       turfId
     });
+
+    // Ensure slot has the date field in the correct format
+    const processedSlot = {
+      ...slot,
+      date: slot.date ? (typeof slot.date === 'string' ? slot.date : format(new Date(slot.date), 'yyyy-MM-dd')) : format(new Date(), 'yyyy-MM-dd')
+    };
+
+    console.log('13. Processed slot with date:', processedSlot);
     
     const booking = new Booking({
       customerId: customer._id, // Use customer's MongoDB ObjectId
       ownerId,
       turfId,
-      slot,
+      slot: processedSlot,
       totalAmount: parseFloat(totalAmount),
       paymentScreenshot: {
         url: uploadResult.secure_url,

@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Upload, CheckCircle, XCircle } from 'lucide-react';
+import { format } from 'date-fns';
 import Image from 'next/image';
 
 interface PaymentModalProps {
@@ -31,6 +32,7 @@ interface PaymentModalProps {
   };
   selectedSlot: {
     day: string;
+    date: Date;
     startTime: string;
     endTime: string;
   };
@@ -105,7 +107,13 @@ export default function PaymentModal({
       formData.append('customerId', user.uid);
       formData.append('ownerId', turf.ownerId); // The turf owner's user ID
       formData.append('turfId', turf._id);
-      formData.append('slot', JSON.stringify(selectedSlot));
+      
+      // Prepare slot data with date as string
+      const slotData = {
+        ...selectedSlot,
+        date: format(selectedSlot.date, 'yyyy-MM-dd')
+      };
+      formData.append('slot', JSON.stringify(slotData));
       formData.append('totalAmount', totalAmount.toString());
       formData.append('paymentScreenshot', paymentScreenshot);
 
@@ -307,7 +315,7 @@ export default function PaymentModal({
         <h4 className="font-medium text-green-900 mb-2">Booking Details:</h4>
         <div className="text-sm text-green-800 space-y-1">
           <p><strong>Turf:</strong> {turf.businessName}</p>
-          <p><strong>Slot:</strong> {selectedSlot.day}, {selectedSlot.startTime} - {selectedSlot.endTime}</p>
+          <p><strong>Slot:</strong> {format(selectedSlot.date, 'EEEE, MMM d')}, {selectedSlot.startTime} - {selectedSlot.endTime}</p>
           <p><strong>Amount:</strong> ₹{totalAmount}</p>
           <p><strong>Status:</strong> Pending Approval</p>
         </div>
@@ -354,7 +362,7 @@ export default function PaymentModal({
             <div className="flex justify-between text-sm">
               <span>Date & Time:</span>
               <span className="font-medium">
-                {selectedSlot.day}, {selectedSlot.startTime} - {selectedSlot.endTime}
+                {format(selectedSlot.date, 'EEEE, MMM d')}, {selectedSlot.startTime} - {selectedSlot.endTime}
               </span>
             </div>
             <Separator />
