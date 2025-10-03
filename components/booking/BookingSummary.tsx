@@ -173,15 +173,15 @@ export function BookingSummary({
   };
 
   return (
-    <div className="sticky top-24">
-      <Card>
-        <CardHeader>
+    <div className="sticky top-24 max-h-[calc(100vh-6rem)]">
+      <Card className="flex flex-col h-full">
+        <CardHeader className="flex-shrink-0">
           <CardTitle className="flex items-center">
             <CreditCard className="h-5 w-5 mr-2 text-green-500" />
             Booking Summary
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 flex-1 overflow-y-auto">
           <div>
             <h3 className="font-semibold text-lg">{turf.name}</h3>
             <p className="text-gray-600 text-sm">{turf.location}</p>
@@ -302,7 +302,7 @@ export function BookingSummary({
               )}
 
               {paymentStep === 'upload' && (
-                <div className="space-y-3" aria-live="polite">
+                <div className="space-y-3 max-h-60 overflow-y-auto" aria-live="polite">
                   <div className="text-sm text-gray-700">
                     <strong>Payment completed (simulated).</strong> Please upload the payment screenshot/proof so the owner can verify the booking.
                   </div>
@@ -322,10 +322,10 @@ export function BookingSummary({
                     {previewUrl && (
                       <div className="border rounded p-2">
                         <p className="text-xs text-gray-500 mb-2">Preview:</p>
-                        <img src={previewUrl} alt="payment preview" className="w-full h-40 object-contain rounded" />
+                        <img src={previewUrl} alt="payment preview" className="w-full h-32 object-contain rounded" />
                         <div className="flex items-center justify-between mt-2">
-                          <div className="text-xs text-gray-500">Selected file: {selectedFile?.name}</div>
-                          <div className="flex items-center gap-2">
+                          <div className="text-xs text-gray-500 truncate">Selected file: {selectedFile?.name}</div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
                             <Button size="sm" variant="ghost" onClick={handleRemoveSelected}>Remove</Button>
                             <Button size="sm" onClick={handleUpload} disabled={isUploading}>
                               {isUploading ? 'Uploading...' : 'Upload & Confirm'}

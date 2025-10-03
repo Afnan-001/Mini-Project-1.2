@@ -330,7 +330,7 @@ export default function PaymentModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Complete Your Booking</DialogTitle>
           <DialogDescription>
@@ -363,7 +363,7 @@ export default function PaymentModal({
         </Card>
 
         {/* Step Content */}
-        <div className="mt-6">
+        <div className="mt-6 flex-1 overflow-y-auto">
           {currentStep === 'payment' && renderPaymentStep()}
           {currentStep === 'upload' && renderUploadStep()}
           {currentStep === 'processing' && renderProcessingStep()}
