@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Clock, Plus, Trash2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface TimeSlot {
   day: string;
@@ -23,54 +24,72 @@ const DAYS = [
   'Friday', 'Saturday', 'Sunday'
 ];
 
-const TIME_OPTIONS = [
-  '06:00', '06:30', '07:00', '07:30', '08:00', '08:30',
-  '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-  '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
-  '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
-  '18:00', '18:30', '19:00', '19:30', '20:00', '20:30',
-  '21:00', '21:30', '22:00', '22:30', '23:00'
-];
+const TIME_OPTIONS = Array.from({ length: 24 }, (_, i) => {
+  const hour = i.toString().padStart(2, '0');
+  return `${hour}:00`;
+});
 
 export function SlotManager({ value, onChange }: SlotManagerProps) {
-  const [newSlot, setNewSlot] = useState<TimeSlot>({
-    day: '',
+  const [selectedDays, setSelectedDays] = useState<string[]>([]);
+  const [newSlot, setNewSlot] = useState({
     startTime: '',
     endTime: ''
   });
 
-  const addSlot = () => {
-    if (!newSlot.day || !newSlot.startTime || !newSlot.endTime) {
-      alert('Please fill all fields');
+  const generateTimeSlots = (startTime: string, endTime: string, selectedDays: string[]) => {
+    const slots: TimeSlot[] = [];
+    const start = parseInt(startTime.split(':')[0]);
+    const end = parseInt(endTime.split(':')[0]);
+
+    selectedDays.forEach(day => {
+      for (let hour = start; hour < end; hour++) {
+        const slotStartTime = `${hour.toString().padStart(2, '0')}:00`;
+        const slotEndTime = `${(hour + 1).toString().padStart(2, '0')}:00`;
+        
+        slots.push({
+          day,
+          startTime: slotStartTime,
+          endTime: slotEndTime
+        });
+      }
+    });
+
+    return slots;
+  };
+
+  const addSlots = () => {
+    if (!newSlot.startTime || !newSlot.endTime || selectedDays.length === 0) {
+      alert('Please select days and time range');
       return;
     }
 
-    // Validate that end time is after start time
-    const start = new Date(`2024-01-01 ${newSlot.startTime}`);
-    const end = new Date(`2024-01-01 ${newSlot.endTime}`);
+    const start = parseInt(newSlot.startTime.split(':')[0]);
+    const end = parseInt(newSlot.endTime.split(':')[0]);
     
     if (end <= start) {
       alert('End time must be after start time');
       return;
     }
 
-    // Check for overlapping slots on the same day
-    const overlapping = value.some(slot => {
-      if (slot.day !== newSlot.day) return false;
-      
-      const existingStart = new Date(`2024-01-01 ${slot.startTime}`);
-      const existingEnd = new Date(`2024-01-01 ${slot.endTime}`);
-      
-      return (start < existingEnd && end > existingStart);
+    const generatedSlots = generateTimeSlots(newSlot.startTime, newSlot.endTime, selectedDays);
+    
+    // Check for overlapping slots
+    const hasOverlap = generatedSlots.some(newSlot => {
+      return value.some(existingSlot => {
+        return existingSlot.day === newSlot.day &&
+          parseInt(existingSlot.startTime) < parseInt(newSlot.endTime) &&
+          parseInt(existingSlot.endTime) > parseInt(newSlot.startTime);
+      });
     });
 
-    if (overlapping) {
-      alert('This time slot overlaps with an existing slot on the same day');
+    if (hasOverlap) {
+      alert('Some slots overlap with existing slots. Please choose different times.');
       return;
     }
 
-    onChange([...value, newSlot]);
-    setNewSlot({ day: '', startTime: '', endTime: '' });
+    onChange([...value, ...generatedSlots]);
+    setNewSlot({ startTime: '', endTime: '' });
+    setSelectedDays([]);
   };
 
   const removeSlot = (index: number) => {
@@ -102,27 +121,37 @@ export function SlotManager({ value, onChange }: SlotManagerProps) {
       <CardContent>
         <div className="space-y-6">
           <p className="text-sm text-gray-600">
-            Set up your available time slots for each day. Customers will only be able to book during these times.
+            Select days and time range to generate 1-hour slots automatically.
           </p>
 
-          {/* Add New Slot */}
+          {/* Add New Slots */}
           <div className="border rounded-lg p-4 bg-gray-50">
-            <h4 className="text-sm font-medium mb-3">Add New Time Slot</h4>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <Select 
-                value={newSlot.day} 
-                onValueChange={(day) => setNewSlot({...newSlot, day})}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select day" />
-                </SelectTrigger>
-                <SelectContent>
-                  {DAYS.map(day => (
-                    <SelectItem key={day} value={day}>{day}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <h4 className="text-sm font-medium mb-3">Add Time Slots</h4>
+            
+            {/* Day Selection */}
+            <div className="mb-4">
+              <h5 className="text-sm font-medium mb-2">Select Days</h5>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {DAYS.map(day => (
+                  <div key={day} className="flex items-center space-x-2">
+                    <Checkbox
+                      checked={selectedDays.includes(day)}
+                      onCheckedChange={(checked) => {
+                        setSelectedDays(
+                          checked
+                            ? [...selectedDays, day]
+                            : selectedDays.filter(d => d !== day)
+                        );
+                      }}
+                    />
+                    <label className="text-sm">{day}</label>
+                  </div>
+                ))}
+              </div>
+            </div>
 
+            {/* Time Range Selection */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <Select 
                 value={newSlot.startTime} 
                 onValueChange={(startTime) => setNewSlot({...newSlot, startTime})}
@@ -151,9 +180,9 @@ export function SlotManager({ value, onChange }: SlotManagerProps) {
                 </SelectContent>
               </Select>
 
-              <Button onClick={addSlot} className="bg-green-500 hover:bg-green-600">
+              <Button onClick={addSlots} className="bg-green-500 hover:bg-green-600">
                 <Plus className="h-4 w-4 mr-2" />
-                Add Slot
+                Generate Slots
               </Button>
             </div>
           </div>
@@ -162,52 +191,54 @@ export function SlotManager({ value, onChange }: SlotManagerProps) {
           <div className="space-y-4">
             <h4 className="text-sm font-medium">Current Schedule ({value.length} slots)</h4>
             
-            {DAYS.map(day => {
-              const daySlots = slotsByDay[day];
-              return (
-                <div key={day} className="border rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <h5 className="font-medium text-gray-900">{day}</h5>
-                    <Badge variant="outline">
-                      {daySlots.length} slot{daySlots.length !== 1 ? 's' : ''}
-                    </Badge>
-                  </div>
-                  
-                  {daySlots.length > 0 ? (
-                    <div className="space-y-2">
-                      {daySlots.map((slot, dayIndex) => {
-                        const globalIndex = value.findIndex(s => 
-                          s.day === slot.day && 
-                          s.startTime === slot.startTime && 
-                          s.endTime === slot.endTime
-                        );
-                        
-                        return (
-                          <div 
-                            key={`${slot.day}-${slot.startTime}-${slot.endTime}`}
-                            className="flex items-center justify-between bg-green-50 p-2 rounded border"
-                          >
-                            <span className="text-sm text-green-800">
-                              {slot.startTime} - {slot.endTime}
-                            </span>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => removeSlot(globalIndex)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        );
-                      })}
+            <div className="max-h-[500px] overflow-y-auto pr-2 space-y-4">
+              {DAYS.map(day => {
+                const daySlots = slotsByDay[day];
+                return (
+                  <div key={day} className="border rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="font-medium text-gray-900">{day}</h5>
+                      <Badge variant="outline">
+                        {daySlots.length} slot{daySlots.length !== 1 ? 's' : ''}
+                      </Badge>
                     </div>
-                  ) : (
-                    <p className="text-sm text-gray-500 italic">No slots available</p>
-                  )}
-                </div>
-              );
-            })}
+                    
+                    {daySlots.length > 0 ? (
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                        {daySlots.map((slot, dayIndex) => {
+                          const globalIndex = value.findIndex(s => 
+                            s.day === slot.day && 
+                            s.startTime === slot.startTime && 
+                            s.endTime === slot.endTime
+                          );
+                          
+                          return (
+                            <div 
+                              key={`${slot.day}-${slot.startTime}-${slot.endTime}`}
+                              className="flex items-center justify-between bg-green-50 p-2 rounded border group hover:bg-green-100 transition-colors"
+                            >
+                              <span className="text-sm text-green-800 font-medium">
+                                {slot.startTime} - {slot.endTime}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeSlot(globalIndex)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500 italic">No slots available</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {value.length === 0 && (
