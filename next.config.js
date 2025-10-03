@@ -4,7 +4,7 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
-    domains: [], // Add domains for external images if needed
+    domains: ['res.cloudinary.com'], // Add domains for external images if needed
   },
 };
 
