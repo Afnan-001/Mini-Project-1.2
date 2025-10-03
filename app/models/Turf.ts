@@ -81,7 +81,6 @@ const TurfSchema = new mongoose.Schema({
   // Owner reference
   ownerId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
     required: true
   },
   ownerUid: {

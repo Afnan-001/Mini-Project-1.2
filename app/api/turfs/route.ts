@@ -74,7 +74,6 @@ export async function GET(request: NextRequest) {
         .sort(sortOptions)
         .skip(skip)
         .limit(limit)
-        .populate('ownerId', 'name email')
         .select('-paymentInfo.upiQrCode') // Don't send UPI QR codes in browse
         .lean();
 
@@ -141,8 +140,18 @@ export async function GET(request: NextRequest) {
         }
       });
 
-    } catch (mongoError) {
-      console.log('MongoDB connection error - returning mock data for development');
+    } catch (mongoError: any) {
+      console.error('❌ Error in Turf query:', mongoError);
+      console.error('Error name:', mongoError?.name);
+      console.error('Error message:', mongoError?.message);
+      console.error('Stack trace:', mongoError?.stack);
+      
+      // Only return mock data if it's actually a connection error
+      if (mongoError?.name === 'MongoNetworkError' || 
+          mongoError?.name === 'MongoServerSelectionError' ||
+          mongoError?.message?.includes('ENOTFOUND') ||
+          mongoError?.message?.includes('connection')) {
+        console.log('MongoDB connection error - returning mock data for development');
       
       // Return mock data if MongoDB connection fails
       const mockTurfs = [
@@ -195,6 +204,10 @@ export async function GET(request: NextRequest) {
           priceRange: { min: 500, max: 2000 }
         }
       });
+      } else {
+        // For other errors, re-throw them to be caught by outer catch
+        throw mongoError;
+      }
     }
 
   } catch (error: any) {

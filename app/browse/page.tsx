@@ -80,27 +80,6 @@ export default function BrowsePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [browseData, setBrowseData] = useState<BrowseData | null>(null);
 
-  // Memoize arrays to prevent infinite loops
-  const selectedSports = useMemo(() => 
-    filters.sport ? [filters.sport] : [], 
-    [filters.sport]
-  );
-  
-  const priceRange = useMemo(() => 
-    filters.priceRange as [number, number], 
-    [filters.priceRange[0], filters.priceRange[1]]
-  );
-
-  const selectedAmenities = useMemo(() => 
-    filters.amenities || [], 
-    [filters.amenities]
-  );
-
-  // Memoize the onDataLoad callback to prevent unnecessary re-renders
-  const handleDataLoad = useCallback((data: BrowseData) => {
-    setBrowseData(data);
-  }, []);
-
   return (
     <div className="min-h-screen bg-gray-50">
       <BrowseHeader 
@@ -125,12 +104,12 @@ export default function BrowsePage() {
           <div className="lg:col-span-3">
             <TurfGrid 
               searchQuery={searchQuery}
-              selectedSports={selectedSports}
-              priceRange={priceRange}
-              selectedAmenities={selectedAmenities}
+              selectedSports={filters.sport ? [filters.sport] : []}
+              priceRange={filters.priceRange as [number, number]}
+              selectedAmenities={filters.amenities}
               availableCities={browseData?.filters.cities || []}
               availableSports={browseData?.filters.sports || []}
-              onDataLoad={handleDataLoad}
+              onDataLoad={setBrowseData}
             />
           </div>
         </div>

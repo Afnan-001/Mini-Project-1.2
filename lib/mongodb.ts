@@ -34,18 +34,36 @@ if (process.env.NODE_ENV === "development") {
 
 // Mongoose Connection (for schema-based operations)
 export const connectMongoDB = async () => {
-  if (process.env.NODE_ENV === "development") {
-    if (!global._mongoose) {
-      // Ensure we're connecting to the correct database
-      global._mongoose = mongoose.connect(uri, {
+  try {
+    console.log('🔗 Attempting MongoDB connection...');
+    console.log('URI exists:', !!uri);
+    console.log('DB Name:', dbName);
+    
+    if (process.env.NODE_ENV === "development") {
+      if (!global._mongoose) {
+        console.log('🆕 Creating new Mongoose connection...');
+        // Ensure we're connecting to the correct database
+        global._mongoose = mongoose.connect(uri, {
+          dbName: dbName
+        });
+      } else {
+        console.log('♻️ Reusing existing Mongoose connection...');
+      }
+      const connection = await global._mongoose;
+      console.log('✅ MongoDB connected successfully via Mongoose');
+      console.log('Connected to database:', connection.connection.db?.databaseName);
+      return connection;
+    } else {
+      console.log('🚀 Production Mongoose connection...');
+      const connection = await mongoose.connect(uri, {
         dbName: dbName
       });
+      console.log('✅ MongoDB connected successfully via Mongoose (production)');
+      return connection;
     }
-    return global._mongoose;
-  } else {
-    return mongoose.connect(uri, {
-      dbName: dbName
-    });
+  } catch (error) {
+    console.error('❌ MongoDB connection failed:', error);
+    throw error;
   }
 };
 
