@@ -64,7 +64,7 @@ const BookingSchema = new mongoose.Schema({
   },
   turfId: {
     type: Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'Turf',
     required: true
   },
   slot: {

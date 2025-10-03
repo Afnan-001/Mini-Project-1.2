@@ -12,8 +12,8 @@ export async function GET(
 
     const { ownerId } = params;
 
-    // Validate that the owner exists
-    const owner = await User.findById(ownerId);
+    // Validate that the owner exists - look up by Firebase UID
+    const owner = await User.findOne({ uid: ownerId });
     if (!owner || owner.role !== 'owner') {
       return NextResponse.json(
         { error: 'Invalid owner ID' },
@@ -28,8 +28,8 @@ export async function GET(
     const limit = parseInt(searchParams.get('limit') || '10');
     const skip = (page - 1) * limit;
 
-    // Build filter query
-    const filterQuery: any = { ownerId };
+    // Build filter query - use the owner's MongoDB ObjectId
+    const filterQuery: any = { ownerId: owner._id };
     
     if (status && ['pending', 'confirmed', 'rejected'].includes(status)) {
       filterQuery.status = status;

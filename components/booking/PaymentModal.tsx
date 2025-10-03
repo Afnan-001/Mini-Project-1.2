@@ -21,6 +21,7 @@ interface PaymentModalProps {
   onClose: () => void;
   turf: {
     _id: string;
+    ownerId: string; // Add ownerId field
     businessName: string;
     pricing: number;
     upiQrCode: {
@@ -102,7 +103,7 @@ export default function PaymentModal({
       // Create FormData for file upload
       const formData = new FormData();
       formData.append('customerId', user.uid);
-      formData.append('ownerId', turf._id); // The turf owner's ID
+      formData.append('ownerId', turf.ownerId); // The turf owner's user ID
       formData.append('turfId', turf._id);
       formData.append('slot', JSON.stringify(selectedSlot));
       formData.append('totalAmount', totalAmount.toString());
@@ -175,6 +176,7 @@ export default function PaymentModal({
             src={turf.upiQrCode.url}
             alt="UPI QR Code"
             fill
+            sizes="256px"
             className="object-contain"
           />
         </div>
@@ -217,6 +219,7 @@ export default function PaymentModal({
                 src={previewUrl}
                 alt="Payment Screenshot Preview"
                 fill
+                sizes="128px"
                 className="object-cover rounded-lg"
               />
             </div>

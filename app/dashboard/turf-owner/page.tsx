@@ -20,6 +20,7 @@ import { SportsSelection } from '@/components/owner/SportsSelection';
 import { AmenitiesSelector } from '@/components/owner/AmenitiesSelector';
 import { AboutSection } from '@/components/owner/AboutSection';
 import { SlotManager } from '@/components/owner/SlotManager';
+import BookingManager from '@/components/owner/BookingManager';
 
 interface CloudinaryImage {
   url: string;
@@ -365,11 +366,12 @@ function TurfOwnerDashboard() {
         )}
 
         <Tabs defaultValue="business-info" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="business-info">Business Info</TabsTrigger>
             <TabsTrigger value="turf-details">Turf Details</TabsTrigger>
             <TabsTrigger value="scheduling">Scheduling</TabsTrigger>
             <TabsTrigger value="location">Location</TabsTrigger>
+            <TabsTrigger value="bookings">Bookings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="business-info" className="space-y-6">
@@ -568,6 +570,10 @@ function TurfOwnerDashboard() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="bookings" className="space-y-6">
+            <BookingManager ownerId={user?.uid || ''} />
           </TabsContent>
         </Tabs>
 

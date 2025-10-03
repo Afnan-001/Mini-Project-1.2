@@ -25,6 +25,7 @@ import PaymentModal from '@/components/booking/PaymentModal';
 
 interface TurfData {
   _id: string;
+  ownerId: string; // Add ownerId field
   name: string;
   businessName: string;
   email: string;
@@ -188,6 +189,8 @@ export default function TurfDetailsPage({ turfId }: TurfDetailsPageProps) {
                         src={image.url}
                         alt={`${turf.businessName} - Image ${index + 1}`}
                         fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        priority={index === 0}
                         className="object-cover rounded-lg"
                       />
                     </div>
@@ -266,10 +269,16 @@ export default function TurfDetailsPage({ turfId }: TurfDetailsPageProps) {
                                 selectedSlot?.startTime === slot.startTime &&
                                 selectedSlot?.endTime === slot.endTime
                                   ? "default"
-                                  : "outline"
+                                  : slot.isBooked 
+                                    ? "destructive"
+                                    : "outline"
                               }
                               disabled={slot.isBooked}
-                              className={`text-sm ${slot.isBooked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              className={`text-sm ${
+                                slot.isBooked 
+                                  ? 'bg-red-100 text-red-800 border-red-300 cursor-not-allowed hover:bg-red-100' 
+                                  : ''
+                              }`}
                               onClick={() => !slot.isBooked && handleSlotSelect(slot)}
                             >
                               {slot.startTime} - {slot.endTime}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectMongoDB } from '@/lib/mongodb';
 import Booking from '@/app/models/Booking';
 import User from '@/app/models/User';
+import Turf from '@/app/models/Turf';
 import { v2 as cloudinary } from 'cloudinary';
 
 // Configure Cloudinary
@@ -13,9 +14,13 @@ cloudinary.config({
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('1. Starting booking creation process...');
     await connectMongoDB();
+    console.log('2. Connected to MongoDB');
 
     const formData = await request.formData();
+    console.log('3. Parsed form data');
+    
     const customerId = formData.get('customerId') as string;
     const ownerId = formData.get('ownerId') as string;
     const turfId = formData.get('turfId') as string;
@@ -23,19 +28,26 @@ export async function POST(request: NextRequest) {
     const totalAmount = formData.get('totalAmount') as string;
     const paymentScreenshot = formData.get('paymentScreenshot') as File;
 
+    console.log('4. Form data extracted:', { customerId, ownerId, turfId, slotData, totalAmount, hasFile: !!paymentScreenshot });
+
     // Validate required fields
     if (!customerId || !ownerId || !turfId || !slotData || !totalAmount || !paymentScreenshot) {
+      console.log('5. Validation failed - missing fields');
       return NextResponse.json(
         { error: 'All fields are required' },
         { status: 400 }
       );
     }
 
+    console.log('6. All required fields present');
+
     // Parse slot data
     let slot;
     try {
       slot = JSON.parse(slotData);
+      console.log('7. Slot data parsed successfully:', slot);
     } catch (error) {
+      console.log('7. Failed to parse slot data:', error);
       return NextResponse.json(
         { error: 'Invalid slot data format' },
         { status: 400 }
@@ -44,18 +56,31 @@ export async function POST(request: NextRequest) {
 
     // Validate slot structure
     if (!slot.day || !slot.startTime || !slot.endTime) {
+      console.log('8. Invalid slot structure:', slot);
       return NextResponse.json(
         { error: 'Slot must contain day, startTime, and endTime' },
         { status: 400 }
       );
     }
 
+    console.log('9. Slot structure valid');
+
     // Verify that the customer, owner, and turf exist
+    console.log('10. Looking up users and turf...');
     const [customer, owner, turf] = await Promise.all([
-      User.findById(customerId),
-      User.findById(ownerId),
-      User.findById(turfId)
+      User.findOne({ uid: customerId }), // Find customer by Firebase UID
+      User.findById(ownerId), // Find owner by MongoDB ObjectId
+      Turf.findById(turfId) // Find turf by MongoDB ObjectId
     ]);
+
+    console.log('11. Database lookup results:', { 
+      customerFound: !!customer, 
+      ownerFound: !!owner, 
+      turfFound: !!turf,
+      customerUid: customer?.uid,
+      customerMongoId: customer?._id,
+      ownerMongoId: owner?._id
+    });
 
     if (!customer || customer.role !== 'customer') {
       return NextResponse.json(
@@ -71,7 +96,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!turf || turf.role !== 'owner') {
+    if (!turf) {
       return NextResponse.json(
         { error: 'Invalid turf' },
         { status: 400 }
@@ -112,8 +137,14 @@ export async function POST(request: NextRequest) {
     }) as any;
 
     // Create the booking
+    console.log('12. Creating booking with IDs:', {
+      customerMongoId: customer._id,
+      ownerId,
+      turfId
+    });
+    
     const booking = new Booking({
-      customerId,
+      customerId: customer._id, // Use customer's MongoDB ObjectId
       ownerId,
       turfId,
       slot,
@@ -130,7 +161,7 @@ export async function POST(request: NextRequest) {
     const populatedBooking = await Booking.findById(booking._id)
       .populate('customerId', 'name email phone')
       .populate('ownerId', 'name email businessName')
-      .populate('turfId', 'businessName location pricing');
+      .populate('turfId', 'name description location pricing');
 
     return NextResponse.json({
       message: 'Booking created successfully',
@@ -139,6 +170,10 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error creating booking:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

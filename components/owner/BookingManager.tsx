@@ -103,15 +103,15 @@ export default function BookingManager({ ownerId }: BookingManagerProps) {
     try {
       setProcessingBooking(bookingId);
 
-      const response = await fetch('/api/bookings/update-status', {
-        method: 'PUT',
+      console.log('Updating booking status with endpoint:', `/api/bookings/${bookingId}/status`);
+
+      const response = await fetch(`/api/bookings/${bookingId}/status`, {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          bookingId,
-          status: newStatus,
-          ownerId
+          status: newStatus
         }),
       });
 
